@@ -1,14 +1,62 @@
-export default function RecordForm() {
+import React, { useState } from "react";
+import { db, storage, auth } from "../firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+
+export default function RecordForm({ selectedType, selectedPart }) {
+  const [memo, setMemo] = useState("");
+  const [file, setFile] = useState(null);
+
+  const handleUpload = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return alert("로그인 필요!");
+
+      let photoURL = "";
+      if (file) {
+        const storageRef = ref(storage, `photos/${user.uid}/${file.name}`);
+        await uploadBytes(storageRef, file);
+        photoURL = await getDownloadURL(storageRef);
+      }
+
+      await addDoc(collection(db, "community"), {
+        userId: user.uid,
+        type: selectedType,
+        part: selectedPart,
+        memo,
+        photo: photoURL,
+        createdAt: serverTimestamp()
+      });
+
+      alert("기록 완료!");
+      setMemo("");
+      setFile(null);
+    } catch (err) {
+      console.error(err);
+      alert("업로드 실패");
+    }
+  };
+
   return (
-    <div className="max-w-xl mx-auto py-20 px-6">
-      <h1 className="text-2xl font-bold mb-4">오늘의 운동 기록</h1>
-      <form>
-        <input type="text" placeholder="운동명" className="border p-2 w-full mb-4" />
-        <input type="number" placeholder="세트 수" className="border p-2 w-full mb-4" />
-        <input type="number" placeholder="무게(kg)" className="border p-2 w-full mb-4" />
-        <textarea placeholder="코멘트" className="border p-2 w-full mb-4"></textarea>
-        <button type="submit" className="px-6 py-3 bg-green-600 text-white rounded">저장하기</button>
-      </form>
+    <div className="p-8">
+      <h2 className="text-xl font-bold mb-2">오늘 기록 남기기</h2>
+      <textarea
+        className="border p-2 w-full mb-2"
+        placeholder="오늘 어땠나요?"
+        value={memo}
+        onChange={(e) => setMemo(e.target.value)}
+      />
+      <input
+        type="file"
+        onChange={(e) => setFile(e.target.files[0])}
+        className="mb-2"
+      />
+      <button
+        onClick={handleUpload}
+        className="bg-blue-500 text-white px-4 py-2 rounded"
+      >
+        기록 올리기
+      </button>
     </div>
   );
 }
